@@ -26,6 +26,7 @@ OPT_FOLDER = "opt"
 
 
 PRE_TRAINED_MODELS = [
+    "model_trained_by_kevin",
     "composition", "seurat", "candy_512_2_49000"
     "fur_0", "kanagawa", "scream-style", 
     "cubist", "hokusai", "kandinsky_e2_crop512", "starry"
@@ -34,6 +35,8 @@ PRE_TRAINED_MODELS = [
 DEFAULT_MODEL = "starry"
 MODEL_PATH1 = "models"
 MODEL_PATH2 = "/work/machine_learning/prisma_style/open-source-proj/gafr/chainer-fast-neuralstyle-models/models"
+MODEL_PATH3 = "/work/machine_learning/prisma_style/open-source-proj/yusuketomoto/chainer-fast-neuralstyle/models"
+MODEL_PATH_LIST = [MODEL_PATH1, MODEL_PATH2, MODEL_PATH3]
 
 # For a given file, return whether it's an allowed type or not
 def allowed_file(filename):
@@ -58,15 +61,15 @@ def update_file():
         print ("\r\n ====================== upload task =====================")
         # Get file object from field of file
         f = request.files['userfile']
-        path = os.path.join(FILE_UPLOAD_PATH, f.filename)
+        path = os.path.join(FILE_UPLOAD_PATH, "%d_%s" % (time.time(), f.filename))
         f.save(path)
         # Get str object from field of text
         #s = request.form['name'] + "\r\n"
         print ("request:", request.form)
         mode = int(request.form['mode'])
         print ("mode : ", mode)
-        randomModel = PRE_TRAINED_MODELS[random.randint(0, len(PRE_TRAINED_MODELS))]
-        model = request.form['model'] if request.form.has_key("model") else randomModel#DEFAULT_MODEL
+        modelName = getModelName()
+        model = request.form['model'] if request.form.has_key("model") else modelName#DEFAULT_MODEL
         log = os.path.join(FILE_UPLOAD_PATH, "log.txt")
         with open(log, 'a') as f:
             f.write("[%s]%s" % (strftime("%Y-%m-%d %H:%M:%S", localtime()), path))
@@ -81,18 +84,29 @@ def update_file():
     log('ERR_CMD_NOT_SUPPORT')
     return '{ret:fail, code:%d}' % (ServerResponseDef.ERR_CMD_NOT_SUPPORT)
 
+def getModelName():
+    modelIdx = random.randint(0, len(PRE_TRAINED_MODELS))
+    randomModel = PRE_TRAINED_MODELS[modelIdx]
+    return randomModel
+
+def getModelPath(modelName):
+    for path in MODEL_PATH_LIST:
+        modelPath = os.path.join(path, modelName)
+        if os.path.exists(modelPath):
+            return modelPath
+
+    return ""
+
 def processImage(path, mode, model):
     log ("processImage:%s" % path)
 
     modelName = "%s.model" % model
-    modelPath = os.path.join(MODEL_PATH1, modelName)
-    if not os.path.exists(modelPath):
-        modelPath = os.path.join(MODEL_PATH2, modelName)
-    if os.path.exists(modelPath):
+    modelPath = getModelPath(modelName)
+    if modelPath:
         log("Use %s" % modelName)
     else:
         log("[ERROR] model %s is not exist" % modelPath)
-        return processImage(path, mode, PRE_TRAINED_MODELS[random.randint(0, len(PRE_TRAINED_MODELS))])
+        return processImage(path, mode, getModelName())
 
     gpu = -1
     median_filter = 3
@@ -148,11 +162,11 @@ if __name__ == '__main__':
     if isDebug:
         #processImage('sample_images/tubingen.jpg')
         src = "sample_images/tubingen.jpg"
-        model = "models/composition.model"
+        model = "model_trained_by_kevin"
         ouput = "sample_images/output.jpg"
-        mode = "1"
+        mode = 1
 
-        #testGenerate()
+        processImage(src, mode, model)
 
     log("launch server in %s mode ..." % serverMode)
     app.run(host='0.0.0.0', debug = debug, port = port)

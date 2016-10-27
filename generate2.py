@@ -21,7 +21,7 @@ RET_OPT_FILENAME = "file"
 RET_OPT_FILENAME_LIST = "file_list"
 RET_SETTING = "setting"
 
-MAX_EDGE = 360
+MAX_EDGE = 640
 
 def resize(oriW, oriH):
 	newW, newH = 0, 0
@@ -90,24 +90,15 @@ def generate(model, gpu, inputPath, median_filter, padding, out, mode = MODE_STA
 
 	elif mode == MODE_STATIC_IMAGE:
 		print("Mode is STATIC_IMAGE")
-		start = time.time()
-		image = xp.asarray(inputImage.convert('RGB'), dtype=xp.float32).transpose(2, 0, 1)
-		image = image.reshape((1,) + image.shape)
-		x = Variable(image)
-
-		y = modelFastStyleNet(x)
-		result = cuda.to_cpu(y.data)
-
-		result = result.transpose(0, 2, 3, 1)
-		result = result.reshape((result.shape[1:]))
-		result = np.uint8(result)
 		
-		Image.fromarray(result).save(out)
+		start = time.time()
+		finalSize = oriW, oriH 
+		optName = processImage(inputImage, xp, modelFastStyleNet, finalSize, 0, padding, median_filter, out)
 
 		processTime = time.time() - start
 
 		dicRet[RET_TIME] = processTime
-		dicRet[RET_OPT_FILENAME] = out
+		dicRet[RET_OPT_FILENAME] = optName
 
 	else:
 		print ("Err, unsupported parm : ", mode)
@@ -116,7 +107,7 @@ def generate(model, gpu, inputPath, median_filter, padding, out, mode = MODE_STA
 	return dicRet
 
 def processImage(inputImage, xp, model, targetSaveSize, idx, padding, median_filter, out):
-	start = time.time()
+	
 	image = np.asarray(inputImage.convert('RGB'), dtype=np.float32).transpose(2, 0, 1)
 	image = image.reshape((1,) + image.shape)
 	if padding > 0:
@@ -127,19 +118,16 @@ def processImage(inputImage, xp, model, targetSaveSize, idx, padding, median_fil
 	y = model(x)
 	result = cuda.to_cpu(y.data)
 
-	if padding > 0:
-		result = result[:, :, padding:-padding, padding:-padding]
 	result = np.uint8(result[0].transpose((1, 2, 0)))
 	med = Image.fromarray(result)
 	if median_filter > 0:
 		med = med.filter(ImageFilter.MedianFilter(median_filter))
-	print(time.time() - start, 'sec')
-
+	
 	name, ext = os.path.splitext(out)
 	optName = "%s_%d%s" % (name , idx, ext)
 	resizedMed = med.resize( targetSaveSize, Image.BILINEAR )
 	resizedMed.save(optName)
-
+	print (optName)
 	return optName
 
 if __name__=="__main__":
