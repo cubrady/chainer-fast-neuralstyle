@@ -108,6 +108,8 @@ def generate(model, gpu, inputPath, median_filter, padding, out, mode = MODE_STA
 
 def processImage(inputImage, xp, model, targetSaveSize, idx, padding, median_filter, out):
 	
+	# Start of Code from generate.py
+	
 	image = np.asarray(inputImage.convert('RGB'), dtype=np.float32).transpose(2, 0, 1)
 	image = image.reshape((1,) + image.shape)
 	if padding > 0:
@@ -118,11 +120,15 @@ def processImage(inputImage, xp, model, targetSaveSize, idx, padding, median_fil
 	y = model(x)
 	result = cuda.to_cpu(y.data)
 
+	if padding > 0:
+		result = result[:, :, padding:-padding, padding:-padding]
 	result = np.uint8(result[0].transpose((1, 2, 0)))
 	med = Image.fromarray(result)
 	if median_filter > 0:
 		med = med.filter(ImageFilter.MedianFilter(median_filter))
-	
+
+	# End of Code from generate.py
+
 	name, ext = os.path.splitext(out)
 	optName = "%s_%d%s" % (name , idx, ext)
 	resizedMed = med.resize( targetSaveSize, Image.BILINEAR )
