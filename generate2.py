@@ -19,35 +19,41 @@ RET_TIME = "time"
 RET_MODE = "mode"
 RET_OPT_FILENAME = "file"
 RET_OPT_FILENAME_LIST = "file_list"
-RET_SETTING = "setting"
+RET_RESOLUTION = "resolution"
+RET_MODEL = "model"
 
-MAX_EDGE = 640
+MAX_EDGE = 2048
+MAX_EDGE_ANIM = 1024
 
-def resize(oriW, oriH):
-	newW, newH = 0, 0
-	if oriW > MAX_EDGE or oriH > MAX_EDGE:
+def getEdge(mode):
+	return MAX_EDGE if mode == MODE_STATIC_IMAGE else MAX_EDGE_ANIM
+
+def resize(oriW, oriH, mode):
+	newW, newH = oriW, oriH
+	edge = getEdge(mode)
+	if oriW > edge or oriH > edge:
 		r = oriW / float(oriH)
 		if oriW > oriH:
-			newW = MAX_EDGE
+			newW = edge
 			newH = int(newW / r)
 		else:
-			newH = MAX_EDGE
+			newH = edge
 			newW = int(newH * r)
 	return newW, newH
 
-def resizeImage(inputPath):
+def resizeImage(inputPath, mode):
 	inputImage = Image.open(inputPath)
 	print (inputImage.format, inputImage.size, inputImage.mode)
 	oriW, oriH = inputImage.size
 
-	newW, newH = resize(oriW, oriH)
+	newW, newH = resize(oriW, oriH, mode)
 	if newW * newH > 0:
 		print("resize from %s to (%s, %d)" % (inputImage.size, newW, newH))
 		inputImage = inputImage.resize((newW, newH), Image.BILINEAR)
 
 	return inputImage, newW, newH
 
-def generate(model, gpu, inputPath, median_filter, padding, out, mode = MODE_STATIC_ANIM_IMAGE):
+def generate(model, gpu, inputPath, median_filter, padding, out, mode = MODE_STATIC_IMAGE):
 	modelFastStyleNet = FastStyleNet()
 
 	serializers.load_npz(model, modelFastStyleNet)
@@ -56,11 +62,11 @@ def generate(model, gpu, inputPath, median_filter, padding, out, mode = MODE_STA
 	    modelFastStyleNet.to_gpu()
 	xp = np if gpu < 0 else cuda.cupy
 
-	inputImage, oriW, oriH = resizeImage(inputPath)
+	inputImage, oriW, oriH = resizeImage(inputPath, mode)
 
 	dicRet = {}
 	dicRet[RET_MODE] = mode
-	dicRet[RET_SETTING] = MAX_EDGE
+	dicRet[RET_RESOLUTION] = getEdge(mode)
 
 	processTime = -1
 
@@ -70,18 +76,17 @@ def generate(model, gpu, inputPath, median_filter, padding, out, mode = MODE_STA
 		start = time.time()
 		optImgList = []
 		for i in xrange(0, DOWN_SCALE_COUNT):
+			t = time.time()
 			ratio = (DOWN_SCALE_COUNT - i) * DOWN_SCALE + DOWN_SCALE
 			w, h = oriW - int(oriW * ratio), oriH - int(oriH * ratio)
 			if not finalSize:
 				finalSize = w, h
-			#print ("Going to process %d x %d" % (w, h))
-			t = time.time()
+			
 			nim = inputImage.resize( (w, h), Image.BILINEAR )
-			print ("Resize done : %d x %d, spend %f sec" % (w, h, time.time() - t))
+			optName = processImage(nim, xp, modelFastStyleNet, finalSize, i, padding, median_filter, out)
+			optImgList.append(optName)
 
-			ret = processImage(nim, xp, modelFastStyleNet, finalSize, i, padding, median_filter, out)
-			print(ret)
-			optImgList.append(ret)
+			print ("Round %d done : %d x %d, spend %f sec" % (i, w, h, time.time() - t))
 
 		processTime = time.time() - start
 
@@ -109,7 +114,7 @@ def generate(model, gpu, inputPath, median_filter, padding, out, mode = MODE_STA
 def processImage(inputImage, xp, model, targetSaveSize, idx, padding, median_filter, out):
 	
 	# Start of Code from generate.py
-	
+
 	image = np.asarray(inputImage.convert('RGB'), dtype=np.float32).transpose(2, 0, 1)
 	image = image.reshape((1,) + image.shape)
 	if padding > 0:

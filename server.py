@@ -2,37 +2,33 @@
 import os, time
 import threading
 import random
+import json
 import ServerResponseDef
 from time import gmtime, localtime, strftime
 from flask import Flask, jsonify, abort, request, make_response, url_for
 from flask import send_from_directory
-from generate2 import generate
-#from threading import Thread
+from generate2 import generate, RET_MODEL
 
-#logging.Formatter(fmt='%(asctime)s.%(msecs)03d',datefmt='%Y-%m-%d,%H:%M:%S')
-#logger = logging.getLogger(__name__)
 
 app = Flask(__name__, static_url_path = "")
 
 # This is the path to the upload directory
 app.config['UPLOAD_FOLDER'] = 'uploads/'
 # These are the extension that we are accepting to be uploaded
-app.config['ALLOWED_EXTENSIONS'] = set(['txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'])
-
+app.config['ALLOWED_EXTENSIONS'] = set(['png', 'jpg', 'jpeg'])
 
 FILE_UPLOAD_PATH = "uploads"
-FILE_TENSOR_GRAPH_PATH = "classify_image_graph_def.pb"
 OPT_FOLDER = "opt"
-
+THUMB_FOLDR = "thumb_opt"
 
 PRE_TRAINED_MODELS = [
-    "model_trained_by_kevin",
-    "composition", "seurat", "candy_512_2_49000"
-    "fur_0", "kanagawa", "scream-style", 
-    "cubist", "hokusai", "kandinsky_e2_crop512", "starry"
-    "edtaonisl", "hundertwasser", "kandinsky_e2_full512", "starrynight"]
+    "model_trained_by_kevin", 
+    "composition", "seurat", 
+    "candy_512_2_49000", "fur_0", "kanagawa", "scream-style", 
+    "cubist", "hokusai", "kandinsky_e2_crop512", "starry",
+    "edtaonisl", "hundertwasser", "kandinsky_e2_full512", "starrynight",
+    "brad_1"]
 
-DEFAULT_MODEL = "starry"
 MODEL_PATH1 = "models"
 MODEL_PATH2 = "/work/machine_learning/prisma_style/open-source-proj/gafr/chainer-fast-neuralstyle-models/models"
 MODEL_PATH3 = "/work/machine_learning/prisma_style/open-source-proj/yusuketomoto/chainer-fast-neuralstyle/models"
@@ -48,6 +44,17 @@ def download(filename):
     uploads = os.path.join(app.root_path, OPT_FOLDER)
     return send_from_directory(directory=uploads, filename=filename)
 
+@app.route('/style_list', methods=['GET'])
+def get_model_list():
+    if request.method == 'GET':
+        prefix = os.path.join(OPT_FOLDER, THUMB_FOLDR, "%s_0.jpg")
+        example = prefix % PRE_TRAINED_MODELS[0]
+        dicRet = {"prefix":prefix, "style_list":PRE_TRAINED_MODELS, "example":example}
+        return json.dumps(dicRet, ensure_ascii=False)
+
+    dicRet = {"err":"invalid parameter"}
+    return json.dumps(dicRet, ensure_ascii=False)
+
 '''
 http://www.mr-ping.com/post/Uvs0I8bMyEEMCgyd
 '''
@@ -58,7 +65,7 @@ def update_file():
     Store data to local files
     """
     if request.method == 'POST':
-        print ("\r\n ====================== upload task =====================")
+        print ("\r\n\r\n ====================== upload task =====================")
         # Get file object from field of file
         f = request.files['userfile']
         path = os.path.join(FILE_UPLOAD_PATH, "%d_%s" % (time.time(), f.filename))
@@ -68,36 +75,40 @@ def update_file():
         print ("request:", request.form)
         mode = int(request.form['mode'])
         print ("mode : ", mode)
-        modelName = getModelName()
-        model = request.form['model'] if request.form.has_key("model") else modelName#DEFAULT_MODEL
-        log = os.path.join(FILE_UPLOAD_PATH, "log.txt")
-        with open(log, 'a') as f:
-            f.write("[%s]%s" % (strftime("%Y-%m-%d %H:%M:%S", localtime()), path))
-        f.close()
-
+        model = request.form['model'] if request.form.has_key("model") else getModelName()
+        if request.form.has_key("model"):
+            print ("Use user defined model : %s" % model)
         dicRet = processImage(path, mode, model)
         dicRet["code"] = ServerResponseDef.SUCCESS
 
         print (dicRet)
-        return str(dicRet)
+        return json.dumps(dicRet, ensure_ascii=False)
 
     log('ERR_CMD_NOT_SUPPORT')
-    return '{ret:fail, code:%d}' % (ServerResponseDef.ERR_CMD_NOT_SUPPORT)
+    dicRet = {"ret":"fail", "code":ServerResponseDef.ERR_CMD_NOT_SUPPORT}
+    return json.dumps(dicRet, ensure_ascii=False)
+
+def writeToFileLog(msg):
+    log = os.path.join(FILE_UPLOAD_PATH, "log.txt")
+    with open(log, 'a') as f:
+        opt = "\r\n[%s]%s" % (strftime("%Y-%m-%d %H:%M:%S", localtime()), msg)
+        f.write(opt)
+        print(opt)
 
 def getModelName():
-    modelIdx = random.randint(0, len(PRE_TRAINED_MODELS))
-    randomModel = PRE_TRAINED_MODELS[modelIdx]
-    return randomModel
+    #modelIdx = 0
+    modelIdx = random.randint(0, len(PRE_TRAINED_MODELS) - 1)
+    return PRE_TRAINED_MODELS[modelIdx]
 
 def getModelPath(modelName):
     for path in MODEL_PATH_LIST:
         modelPath = os.path.join(path, modelName)
         if os.path.exists(modelPath):
             return modelPath
-
+    writeToFileLog("[Err]Cannot find %s" % modelName)
     return ""
 
-def processImage(path, mode, model):
+def processImage(path, mode, model, thumbMode = False):
     log ("processImage:%s" % path)
 
     modelName = "%s.model" % model
@@ -108,19 +119,21 @@ def processImage(path, mode, model):
         log("[ERROR] model %s is not exist" % modelPath)
         return processImage(path, mode, getModelName())
 
-    gpu = -1
+    gpu = 0
     median_filter = 3
     padding = 50
-    folder = os.path.join(OPT_FOLDER, "%d" % time.time())
+    storeFolder = "thumb_opt" if thumbMode else "%d" % time.time()
+    folder = os.path.join(OPT_FOLDER, storeFolder)
     if not os.path.exists(folder):
         os.makedirs(folder)
-    out = os.path.join(folder, 'out.jpg')
+    out = os.path.join(folder, '%s.jpg' % model)
 
-    ret = generate(modelPath, gpu, path, median_filter, padding, out, mode)
+    dicRet = generate(modelPath, gpu, path, median_filter, padding, out, mode)
+    dicRet[RET_MODEL] = model
 
     log ("processImage done!")
 
-    return ret
+    return dicRet
 
 @app.errorhandler(400)
 def not_found(error):
@@ -146,7 +159,14 @@ def make_public_task(task):
 def log(msg):
     print ("[%s] %s" % (strftime("%Y-%m-%d %H:%M:%S", localtime()), msg))
     #print ("[%s] %s" % (, msg))
-    #logger.info(msg)
+
+def genThumb():
+    src = "sample_images/tubingen.128.jpg"
+    count = 1
+    for modelName in PRE_TRAINED_MODELS:
+        print ("----- %d ---- %s" % (count, modelName))
+        processImage(src, 1, modelName, thumbMode = True)
+        count += 1
 
 if __name__ == '__main__':
     import multiprocessing, sys
@@ -166,7 +186,8 @@ if __name__ == '__main__':
         ouput = "sample_images/output.jpg"
         mode = 1
 
-        processImage(src, mode, model)
+        #processImage(src, mode, model)
+        genThumb()
 
     log("launch server in %s mode ..." % serverMode)
     app.run(host='0.0.0.0', debug = debug, port = port)
