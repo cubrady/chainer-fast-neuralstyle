@@ -27,7 +27,7 @@ PRE_TRAINED_MODELS = [
     "candy_512_2_49000", "fur_0", "kanagawa", "scream-style", 
     "cubist", "hokusai", "kandinsky_e2_crop512", "starry",
     "edtaonisl", "hundertwasser", "kandinsky_e2_full512", "starrynight",
-    "brad_1"]
+    "brad_1", "600_271_0", "4_600_274", "4_600_274_0", "4_600_274_1"]
 
 MODEL_PATH1 = "models"
 MODEL_PATH2 = "/work/machine_learning/prisma_style/open-source-proj/gafr/chainer-fast-neuralstyle-models/models"

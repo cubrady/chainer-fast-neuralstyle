@@ -4,12 +4,12 @@ from __future__ import print_function
 import numpy as np
 import os, time
 from PIL import Image, ImageFilter
-
+import images2gif
 import chainer
 from chainer import cuda, Variable, serializers
 from net import *
 
-DOWN_SCALE = 0.02
+DOWN_SCALE = 0.03
 DOWN_SCALE_COUNT = 5
 
 MODE_STATIC_IMAGE = 1
@@ -17,6 +17,8 @@ MODE_STATIC_ANIM_IMAGE = 2
 
 RET_TIME = "time"
 RET_MODE = "mode"
+RET_OPT_VIDEO = "video"
+RET_OPT_GIF = "gif"
 RET_OPT_FILENAME = "file"
 RET_OPT_FILENAME_LIST = "file_list"
 RET_RESOLUTION = "resolution"
@@ -69,36 +71,49 @@ def generate(model, gpu, inputPath, median_filter, padding, out, mode = MODE_STA
 	dicRet[RET_RESOLUTION] = getEdge(mode)
 
 	processTime = -1
+	fileName, fileExt = os.path.splitext(out)
 
 	if mode == MODE_STATIC_ANIM_IMAGE:
 		print("Mode is STATIC_ANIM_IMAGE")
 		finalSize = None
 		start = time.time()
-		optImgList = []
+		optImgNameList = []
+		imgList = []
 		for i in xrange(0, DOWN_SCALE_COUNT):
 			t = time.time()
 			ratio = (DOWN_SCALE_COUNT - i) * DOWN_SCALE + DOWN_SCALE
 			w, h = oriW - int(oriW * ratio), oriH - int(oriH * ratio)
+			# Inorder to use ffmpeg to encode to video, the width must be even
+			if w % 2 != 0:
+				w += 1
+			#print (i, w, h, ratio)
 			if not finalSize:
 				finalSize = w, h
 			
 			nim = inputImage.resize( (w, h), Image.BILINEAR )
-			optName = processImage(nim, xp, modelFastStyleNet, finalSize, i, padding, median_filter, out)
-			optImgList.append(optName)
+			optName, resizedImg = processImage(nim, xp, modelFastStyleNet, finalSize, i, padding, median_filter, fileName, fileExt)
+			optImgNameList.append(optName)
+			imgList.append(resizedImg)
 
 			print ("Round %d done : %d x %d, spend %f sec" % (i, w, h, time.time() - t))
 
 		processTime = time.time() - start
 
+		# Generate GIF
+		giFileName = fileName + ".gif"
+		images2gif.writeGif(giFileName, imgList, duration=0.5, dither=0)  
+
+		dicRet[RET_OPT_VIDEO] = genVideo(fileName)
+		dicRet[RET_OPT_GIF] = giFileName
 		dicRet[RET_TIME] = processTime
-		dicRet[RET_OPT_FILENAME_LIST] = optImgList
+		dicRet[RET_OPT_FILENAME_LIST] = optImgNameList
 
 	elif mode == MODE_STATIC_IMAGE:
 		print("Mode is STATIC_IMAGE")
 		
 		start = time.time()
 		finalSize = oriW, oriH 
-		optName = processImage(inputImage, xp, modelFastStyleNet, finalSize, 0, padding, median_filter, out)
+		optName, _ = processImage(inputImage, xp, modelFastStyleNet, finalSize, 0, padding, median_filter, fileName, fileExt)
 
 		processTime = time.time() - start
 
@@ -111,9 +126,21 @@ def generate(model, gpu, inputPath, median_filter, padding, out, mode = MODE_STA
 	print(">>>>>>>>>>>>>>>>> Process done, spend %d sec" % processTime)
 	return dicRet
 
-def processImage(inputImage, xp, model, targetSaveSize, idx, padding, median_filter, out):
+def genVideo(name):
+	# -r 2 (2 frames per second)
+	# ffmpeg -framerate 2 -i composition_%d.jpg -c:v libx264 -profile:v high -crf 20 -pix_fmt yuv420p output.mp4
+	optVideo = name + ".mp4"
+	#cmd = "ffmpeg -f image2 -r 2 -i " + name + "_%d.jpg -vcodec mpeg4 -y " + optVideo
+	cmd = "ffmpeg -framerate 2 -i " + name + "_%d.jpg -c:v libx264 -profile:v high -crf 20 -pix_fmt yuv420p " + optVideo
+	os.popen(cmd)
+	#ret = os.popen(cmd).readlines()
+	#print (ret)
+	return optVideo
+
+def processImage(inputImage, xp, model, targetSaveSize, idx, padding, median_filter, fileName, fileExt):
 	
 	# Start of Code from generate.py
+	start = time.time()
 
 	image = np.asarray(inputImage.convert('RGB'), dtype=np.float32).transpose(2, 0, 1)
 	image = image.reshape((1,) + image.shape)
@@ -131,15 +158,16 @@ def processImage(inputImage, xp, model, targetSaveSize, idx, padding, median_fil
 	med = Image.fromarray(result)
 	if median_filter > 0:
 		med = med.filter(ImageFilter.MedianFilter(median_filter))
+	processTime = time.time() - start
 
 	# End of Code from generate.py
 
-	name, ext = os.path.splitext(out)
-	optName = "%s_%d%s" % (name , idx, ext)
+	optName = "%s_%d%s" % (fileName , idx, fileExt)
 	resizedMed = med.resize( targetSaveSize, Image.BILINEAR )
 	resizedMed.save(optName)
-	print (optName)
-	return optName
+
+	print (optName, processTime)
+	return optName, resizedMed
 
 if __name__=="__main__":
 	model = "models/style.model"
