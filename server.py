@@ -8,7 +8,7 @@ from time import gmtime, localtime, strftime
 from flask import Flask, jsonify, abort, request, make_response, url_for
 from flask import send_from_directory
 from generate2 import generate, RET_MODEL
-
+from config import *
 
 app = Flask(__name__, static_url_path = "")
 
@@ -16,23 +16,6 @@ app = Flask(__name__, static_url_path = "")
 app.config['UPLOAD_FOLDER'] = 'uploads/'
 # These are the extension that we are accepting to be uploaded
 app.config['ALLOWED_EXTENSIONS'] = set(['png', 'jpg', 'jpeg'])
-
-FILE_UPLOAD_PATH = "uploads"
-OPT_FOLDER = "opt"
-THUMB_FOLDR = "thumb_opt"
-
-PRE_TRAINED_MODELS = [
-    "model_trained_by_kevin", 
-    "composition", "seurat", 
-    "candy_512_2_49000", "fur_0", "kanagawa", "scream-style", 
-    "cubist", "hokusai", "kandinsky_e2_crop512", "starry",
-    "edtaonisl", "hundertwasser", "kandinsky_e2_full512", "starrynight",
-    "brad_1", "600_271_0", "4_600_274", "4_600_274_0", "4_600_274_1"]
-
-MODEL_PATH1 = "models"
-MODEL_PATH2 = "/work/machine_learning/prisma_style/open-source-proj/gafr/chainer-fast-neuralstyle-models/models"
-MODEL_PATH3 = "/work/machine_learning/prisma_style/open-source-proj/yusuketomoto/chainer-fast-neuralstyle/models"
-MODEL_PATH_LIST = [MODEL_PATH1, MODEL_PATH2, MODEL_PATH3]
 
 # For a given file, return whether it's an allowed type or not
 def allowed_file(filename):
@@ -119,10 +102,12 @@ def processImage(path, mode, model, thumbMode = False):
         log("[ERROR] model %s is not exist" % modelPath)
         return processImage(path, mode, getModelName())
 
-    gpu = 0
+    gpu = 0 if ENABLE_GPU else -1
+    log("Enable GPU:%s" % ENABLE_GPU)
     median_filter = 3
     padding = 50
-    storeFolder = "thumb_opt" if thumbMode else "%d" % time.time()
+    #storeFolder = "thumb_opt" if thumbMode else "%d_r%d" % (time.time(), random.randint(0, 100))
+    storeFolder = "thumb_opt" if thumbMode else "%d" % (time.time())
     folder = os.path.join(OPT_FOLDER, storeFolder)
     if not os.path.exists(folder):
         os.makedirs(folder)
@@ -154,7 +139,7 @@ def make_public_task(task):
         else:
             new_task[field] = task[field]
     return new_task
-    
+
 
 def log(msg):
     print ("[%s] %s" % (strftime("%Y-%m-%d %H:%M:%S", localtime()), msg))
@@ -167,6 +152,19 @@ def genThumb():
         print ("----- %d ---- %s" % (count, modelName))
         processImage(src, 1, modelName, thumbMode = True)
         count += 1
+
+def __stressTest(*args):
+    path = os.path.join("sample_images", "tubingen.jpg")
+    mode = 1
+    model = "seurat"
+    dicRet = processImage(path, mode, model)
+
+def stressTest():
+    COUNT = 3
+    import thread
+    for i in xrange(0, COUNT):
+        print("Stresst test .... %d" % i)
+        thread.start_new_thread(__stressTest, ("ThreadFun", i))
 
 if __name__ == '__main__':
     import multiprocessing, sys
@@ -187,8 +185,8 @@ if __name__ == '__main__':
         mode = 1
 
         #processImage(src, mode, model)
-        genThumb()
+        #genThumb()
+        stressTest()
 
     log("launch server in %s mode ..." % serverMode)
     app.run(host='0.0.0.0', debug = debug, port = port)
-
