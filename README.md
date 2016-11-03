@@ -19,7 +19,7 @@ Fast artistic style transfer by using feed forward network.
 
 - AWS p2.xlarge
 - process time(CPU): 17.95sec (Intel Xeon E5-2686v4 2.3G) [my test]
-- process time(GPU): 3.56sec (Tesla K80, Driver 361.93.02) [my test]
+- process time(GPU): 1.39sec (Tesla K80, Driver 361.93.02) [my test]
 
 
 ## Requirement
