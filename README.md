@@ -12,8 +12,15 @@ Fast artistic style transfer by using feed forward network.
 - input image size: 1024x768
 - process time(CPU): 17.78sec (Core i7-5930K)
 - process time(GPU): 0.994sec (GPU TitanX)
+
+- My Machine
 - process time(CPU): 7.60sec (Core i7-6700 @ 3.4G) [my test]
 - process time(GPU): 0.945sec (GPU MSI GeForce GTX 1070, Driver 367.57) [my test]
+
+- AWS p2.xlarge
+- process time(CPU): 17.95sec (Intel Xeon E5-2686v4 2.3G) [my test]
+- process time(GPU): 3.56sec (Tesla K80, Driver 361.93.02) [my test]
+
 
 ## Requirement
 - [Chainer](https://github.com/pfnet/chainer)
