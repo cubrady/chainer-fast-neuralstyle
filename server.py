@@ -91,7 +91,7 @@ def getModelPath(modelName):
     writeToFileLog("[Err]Cannot find %s" % modelName)
     return ""
 
-def processImage(path, mode, model, thumbMode = False):
+def processImage(path, mode, model, thumbMode = False, lock = None):
     log ("processImage:%s" % path)
 
     modelName = "%s.model" % model
@@ -109,8 +109,16 @@ def processImage(path, mode, model, thumbMode = False):
     #storeFolder = "thumb_opt" if thumbMode else "%d_r%d" % (time.time(), random.randint(0, 100))
     storeFolder = "thumb_opt" if thumbMode else "%d" % (time.time())
     folder = os.path.join(OPT_FOLDER, storeFolder)
-    if not os.path.exists(folder):
-        os.makedirs(folder)
+
+    def __safeCreateFolder():
+        if lock:
+           lock.acquire()
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+        if lock:
+           lock.release()
+    __safeCreateFolder()
+
     out = os.path.join(folder, '%s.jpg' % model)
 
     dicRet = generate(modelPath, gpu, path, median_filter, padding, out, mode)
@@ -154,17 +162,19 @@ def genThumb():
         count += 1
 
 def __stressTest(*args):
+    lock = args[0]
+    print(type(lock))
     path = os.path.join("sample_images", "tubingen.jpg")
     mode = 1
     model = "seurat"
-    dicRet = processImage(path, mode, model)
+    dicRet = processImage(path, mode, model, lock = lock)
 
 def stressTestThreadCount(count):
-    import threading
+    import threading, thread
     lstThreads = []
+    lock = thread.allocate_lock()
     for i in xrange(1, count+1):
-        print("Stresst test .... %d" % i)
-        t = threading.Thread(target = __stressTest)
+        t = threading.Thread(target = __stressTest, args = (lock,))
         t.start()
         lstThreads.append(t)
 
