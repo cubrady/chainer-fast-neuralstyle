@@ -162,24 +162,32 @@ def genThumb():
         count += 1
 
 def __stressTest(*args):
-    lock = args[0]
-    print(type(lock))
+    lock, queue = args
     path = os.path.join("sample_images", "tubingen.jpg")
     mode = 1
     model = "seurat"
     dicRet = processImage(path, mode, model, lock = lock)
+    queue.put(dicRet[RET_TIME])
 
 def stressTestThreadCount(count):
-    import threading, thread
+    import threading, thread, Queue
     lstThreads = []
     lock = thread.allocate_lock()
+    queue = Queue.Queue()
     for i in xrange(1, count+1):
-        t = threading.Thread(target = __stressTest, args = (lock,))
+        t = threading.Thread(target = __stressTest, args = (lock, queue))
         t.start()
         lstThreads.append(t)
 
+    exec_time_sum = 0.0
+    exec_time_cnt = 0
     for t in lstThreads:
         t.join()
+        exec_time_sum += queue.get()
+        exec_time_cnt += 1
+
+    print ("Avg spend time : %f, count : %d" % (exec_time_sum / float(exec_time_cnt), exec_time_cnt))
+
 
 def stressTest():
     loop = 10
