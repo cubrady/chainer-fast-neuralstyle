@@ -163,7 +163,7 @@ def genThumb():
 
 def __stressTest(*args):
     lock, queue = args
-    path = os.path.join("sample_images", "tubingen.jpg")
+    path = os.path.join("sample_images", "tubingen.s240.jpg")
     mode = 1
     model = "seurat"
     dicRet = processImage(path, mode, model, lock = lock)
@@ -190,7 +190,7 @@ def stressTestThreadCount(count):
 
 
 def stressTest():
-    loop = 10
+    loop = 100
     for i in xrange(1, loop):
         print("\r\n\r\nStresst test Round %d >>>>>>>>>>>>>>>>>>" % i)
         stressTestThreadCount(i)
