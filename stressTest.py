@@ -22,6 +22,7 @@ def stressTestThreadCount(count, funcStressTarget):
     lstThreads = []
     lock = thread.allocate_lock()
     queue = Queue.Queue()
+    t = time.time()
     for i in xrange(1, count+1):
         t = threading.Thread(target = __stressTest, args = (lock, queue, funcStressTarget))
         t.start()
@@ -33,8 +34,9 @@ def stressTestThreadCount(count, funcStressTarget):
         t.join()
         exec_time_sum += queue.get()
         exec_time_cnt += 1
+    totalSpend = time.time() - t
 
-    __log("[Round %d] Avg spend time : %f, count : %d" % (count, exec_time_sum / float(exec_time_cnt), exec_time_cnt))
+    __log("[Round %d] Avg spend time : %f, count : %d" % (count, totalSpend / float(exec_time_cnt), exec_time_cnt))
 
 def stressTest(funcStressTarget):
     if not os.path.exists(LOG_FODLER):
