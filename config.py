@@ -1,4 +1,4 @@
-ENABLE_GPU = False
+ENABLE_GPU = True
 
 MODEL_PATH1 = "models"
 MODEL_PATH2 = "/work/machine_learning/prisma_style/open-source-proj/gafr/chainer-fast-neuralstyle-models/models"

@@ -159,34 +159,50 @@ def __stressTest(*args):
     model = "seurat"
     dicRet = processImage(path, mode, model)
 
-def stressTest():
-    COUNT = 3
-    import thread
-    for i in xrange(0, COUNT):
+def stressTestThreadCount(count):
+    import threading
+    lstThreads = []
+    for i in xrange(1, count+1):
         print("Stresst test .... %d" % i)
-        thread.start_new_thread(__stressTest, ("ThreadFun", i))
+        t = threading.Thread(target = __stressTest)
+        t.start()
+        lstThreads.append(t)
+
+    for t in lstThreads:
+        t.join()
+
+def stressTest():
+    loop = 10
+    for i in xrange(1, loop):
+        print("\r\n\r\nStresst test Round %d >>>>>>>>>>>>>>>>>>" % i)
+        stressTestThreadCount(i)
+        print("Stresst test Round %d Complete !!! " % i)
 
 if __name__ == '__main__':
     import multiprocessing, sys
     log("cpu_count : %d" % multiprocessing.cpu_count())
 
     isDebug = False
+    isStressTest = False
     if len(sys.argv) >= 2:
         isDebug = sys.argv[1] == 'dbg'
+        isStressTest = sys.argv[1] == 'stress'
     debug = isDebug
     port = 4000 if isDebug else 5000
     serverMode = "DEBUG" if debug else "PRODUCTION"
 
-    if isDebug:
-        #processImage('sample_images/tubingen.jpg')
-        src = "sample_images/tubingen.jpg"
-        model = "model_trained_by_kevin"
-        ouput = "sample_images/output.jpg"
-        mode = 1
-
-        #processImage(src, mode, model)
-        #genThumb()
+    if isStressTest:
         stressTest()
+    else:
+        if isDebug:
+            #processImage('sample_images/tubingen.jpg')
+            src = "sample_images/tubingen.jpg"
+            model = "model_trained_by_kevin"
+            ouput = "sample_images/output.jpg"
+            mode = 1
 
-    log("launch server in %s mode ..." % serverMode)
-    app.run(host='0.0.0.0', debug = debug, port = port)
+            #processImage(src, mode, model)
+            #genThumb()
+
+        log("launch server in %s mode ..." % serverMode)
+        app.run(host='0.0.0.0', debug = debug, port = port)
