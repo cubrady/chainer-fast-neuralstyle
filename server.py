@@ -4,11 +4,12 @@ import threading
 import random
 import json
 import ServerResponseDef
-from time import gmtime, localtime, strftime
 from flask import Flask, jsonify, abort, request, make_response, url_for
 from flask import send_from_directory
 from generate2 import generate, RET_MODEL
 from config import *
+from util import *
+from stressTest import stressTest
 
 app = Flask(__name__, static_url_path = "")
 
@@ -70,13 +71,6 @@ def update_file():
     log('ERR_CMD_NOT_SUPPORT')
     dicRet = {"ret":"fail", "code":ServerResponseDef.ERR_CMD_NOT_SUPPORT}
     return json.dumps(dicRet, ensure_ascii=False)
-
-def writeToFileLog(msg):
-    log = os.path.join(FILE_UPLOAD_PATH, "log.txt")
-    with open(log, 'a') as f:
-        opt = "\r\n[%s]%s" % (strftime("%Y-%m-%d %H:%M:%S", localtime()), msg)
-        f.write(opt)
-        print(opt)
 
 def getModelName():
     #modelIdx = 0
@@ -148,11 +142,6 @@ def make_public_task(task):
             new_task[field] = task[field]
     return new_task
 
-
-def log(msg):
-    print ("[%s] %s" % (strftime("%Y-%m-%d %H:%M:%S", localtime()), msg))
-    #print ("[%s] %s" % (, msg))
-
 def genThumb():
     src = "sample_images/tubingen.128.jpg"
     count = 1
@@ -160,41 +149,6 @@ def genThumb():
         print ("----- %d ---- %s" % (count, modelName))
         processImage(src, 1, modelName, thumbMode = True)
         count += 1
-
-def __stressTest(*args):
-    lock, queue = args
-    path = os.path.join("sample_images", "tubingen.s240.jpg")
-    mode = 1
-    model = "seurat"
-    dicRet = processImage(path, mode, model, lock = lock)
-    queue.put(dicRet[RET_TIME])
-
-def stressTestThreadCount(count):
-    import threading, thread, Queue
-    lstThreads = []
-    lock = thread.allocate_lock()
-    queue = Queue.Queue()
-    for i in xrange(1, count+1):
-        t = threading.Thread(target = __stressTest, args = (lock, queue))
-        t.start()
-        lstThreads.append(t)
-
-    exec_time_sum = 0.0
-    exec_time_cnt = 0
-    for t in lstThreads:
-        t.join()
-        exec_time_sum += queue.get()
-        exec_time_cnt += 1
-
-    print ("Avg spend time : %f, count : %d" % (exec_time_sum / float(exec_time_cnt), exec_time_cnt))
-
-
-def stressTest():
-    loop = 100
-    for i in xrange(1, loop):
-        print("\r\n\r\nStresst test Round %d >>>>>>>>>>>>>>>>>>" % i)
-        stressTestThreadCount(i)
-        print("Stresst test Round %d Complete !!! " % i)
 
 if __name__ == '__main__':
     import multiprocessing, sys
@@ -210,7 +164,7 @@ if __name__ == '__main__':
     serverMode = "DEBUG" if debug else "PRODUCTION"
 
     if isStressTest:
-        stressTest()
+        stressTest(processImage)
     else:
         if isDebug:
             #processImage('sample_images/tubingen.jpg')

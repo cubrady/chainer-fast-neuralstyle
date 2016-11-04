@@ -1,4 +1,4 @@
-#-*- coding:utf-8 -*- 
+#-*- coding:utf-8 -*-
 
 from __future__ import print_function
 import numpy as np
@@ -8,24 +8,7 @@ import images2gif
 import chainer
 from chainer import cuda, Variable, serializers
 from net import *
-
-DOWN_SCALE = 0.03
-DOWN_SCALE_COUNT = 5
-
-MODE_STATIC_IMAGE = 1
-MODE_STATIC_ANIM_IMAGE = 2
-
-RET_TIME = "time"
-RET_MODE = "mode"
-RET_OPT_VIDEO = "video"
-RET_OPT_GIF = "gif"
-RET_OPT_FILENAME = "file"
-RET_OPT_FILENAME_LIST = "file_list"
-RET_RESOLUTION = "resolution"
-RET_MODEL = "model"
-
-MAX_EDGE = 2048
-MAX_EDGE_ANIM = 1024
+from config import *
 
 def getEdge(mode):
 	return MAX_EDGE if mode == MODE_STATIC_IMAGE else MAX_EDGE_ANIM
@@ -89,7 +72,7 @@ def generate(model, gpu, inputPath, median_filter, padding, out, mode = MODE_STA
 			#print (i, w, h, ratio)
 			if not finalSize:
 				finalSize = w, h
-			
+
 			nim = inputImage.resize( (w, h), Image.BILINEAR )
 			optName, resizedImg = processImage(nim, xp, modelFastStyleNet, finalSize, i, padding, median_filter, fileName, fileExt)
 			optImgNameList.append(optName)
@@ -101,7 +84,7 @@ def generate(model, gpu, inputPath, median_filter, padding, out, mode = MODE_STA
 
 		# Generate GIF
 		giFileName = fileName + ".gif"
-		images2gif.writeGif(giFileName, imgList, duration=0.5, dither=0)  
+		images2gif.writeGif(giFileName, imgList, duration=0.5, dither=0)
 
 		dicRet[RET_OPT_VIDEO] = genVideo(fileName)
 		dicRet[RET_OPT_GIF] = giFileName
@@ -110,9 +93,9 @@ def generate(model, gpu, inputPath, median_filter, padding, out, mode = MODE_STA
 
 	elif mode == MODE_STATIC_IMAGE:
 		print("Mode is STATIC_IMAGE")
-		
+
 		start = time.time()
-		finalSize = oriW, oriH 
+		finalSize = oriW, oriH
 		optName, _ = processImage(inputImage, xp, modelFastStyleNet, finalSize, 0, padding, median_filter, fileName, fileExt)
 
 		processTime = time.time() - start
@@ -138,7 +121,7 @@ def genVideo(name):
 	return optVideo
 
 def processImage(inputImage, xp, model, targetSaveSize, idx, padding, median_filter, fileName, fileExt):
-	
+
 	# Start of Code from generate.py
 	start = time.time()
 

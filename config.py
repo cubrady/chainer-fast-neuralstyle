@@ -1,3 +1,5 @@
+#-*- coding:utf-8 -*-
+
 ENABLE_GPU = True
 
 MODEL_PATH1 = "models"
@@ -36,3 +38,7 @@ RET_MODEL = "model"
 
 MAX_EDGE = 2048
 MAX_EDGE_ANIM = 720
+
+LOG_FODLER = "log"
+LOG_FILE_GENERAL = "log.log"
+LOG_FILE_STRESS = "stress.log"
