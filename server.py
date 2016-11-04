@@ -156,14 +156,18 @@ if __name__ == '__main__':
 
     isDebug = False
     isStressTest = False
+    isGenThumb = False
     if len(sys.argv) >= 2:
         isDebug = sys.argv[1] == 'dbg'
         isStressTest = sys.argv[1] == 'stress'
+        isGenThumb = sys.argv[1] == 'genthumb'
     debug = isDebug
     port = 4000 if isDebug else 5000
     serverMode = "DEBUG" if debug else "PRODUCTION"
 
-    if isStressTest:
+    if isGenThumb:
+        genThumb()
+    elif isStressTest:
         stressTest(processImage)
     else:
         if isDebug:
@@ -174,7 +178,6 @@ if __name__ == '__main__':
             mode = 1
 
             #processImage(src, mode, model)
-            #genThumb()
 
         log("launch server in %s mode ..." % serverMode)
         app.run(host='0.0.0.0', debug = debug, port = port)

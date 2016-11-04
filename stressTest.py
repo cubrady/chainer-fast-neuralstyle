@@ -1,6 +1,6 @@
 #-*- coding:utf-8 -*-
 
-import os
+import os, time
 from config import *
 from util import *
 
@@ -22,7 +22,7 @@ def stressTestThreadCount(count, funcStressTarget):
     lstThreads = []
     lock = thread.allocate_lock()
     queue = Queue.Queue()
-    t = time.time()
+    startTime = time.time()
     for i in xrange(1, count+1):
         t = threading.Thread(target = __stressTest, args = (lock, queue, funcStressTarget))
         t.start()
@@ -34,7 +34,7 @@ def stressTestThreadCount(count, funcStressTarget):
         t.join()
         exec_time_sum += queue.get()
         exec_time_cnt += 1
-    totalSpend = time.time() - t
+    totalSpend = time.time() - startTime
 
     __log("[Round %d] Avg spend time : %f, count : %d" % (count, totalSpend / float(exec_time_cnt), exec_time_cnt))
 
